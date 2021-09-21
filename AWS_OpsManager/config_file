@@ -1,0 +1,20 @@
+systemLog:
+  destination: file
+  path: "/data/appdb/mongodb.log"
+  logAppend: true
+storage:
+  dbPath: "/data/appdb"
+  journal:
+    enabled: true
+  wiredTiger:
+    engineConfig:
+      cacheSizeGB: 1
+processManagement:
+  fork: true
+  timeZoneInfo: /usr/share/zoneinfo
+  pidFilePath: /var/run/mongodb/mongod.pid
+net:
+  bindIp: 127.0.0.1
+  port: 27017
+setParameter:
+  enableLocalhostAuthBypass: false
