@@ -62,11 +62,40 @@ variable "ownerName" {
 variable "initials" {
   type        = string
   description = "Provide your initials for a unique name identifier"
+}
 
+variable "opsManagerUser" {
+  type        = string
+  description = "Username of your Ops Manager User"
+}
+
+variable "opsManagerPass" {
+  type        = string
+  description = "Password of your Ops Manager User"
+}
+
+variable "opsManagerFirstname" {
+  type        = string
+  description = "First name of your Ops Manager User"
+}
+
+variable "opsManagerLastname" {
+  type        = string
+  description = "Last name of your Ops Manager User"
+}
+
+variable "agentNodecount" {
+  type        = number
+  description = "Number of nodes to be deployed for MongoDB Deployment"
+}
+
+variable "agentInstancetype" {
+  type        = string
+  description = "Instance type of agent nodes"
 }
 
 resource "aws_security_group" "OpsManager" {
-  name        = "${var.initials}_OpsManater"
+  name        = "${var.initials}_OpsManager"
   description = "Allow ingress for Ops Manager"
 
   ingress = [
@@ -149,9 +178,9 @@ resource "aws_instance" "OpsManager" {
   }
 }
 
-resource "null_resource" "OpsManager_config" {
+resource "null_resource" "OpsManager_configuration" {
   triggers = {
-    config_file = templatefile("${path.module}/opsManager_config.tpl", {
+    config_file = templatefile("${path.module}/opsManager_configfile.tpl", {
       OpsManagerUrl = "http://${aws_instance.OpsManager.public_dns}:8080"
     })
   }
@@ -168,7 +197,7 @@ resource "null_resource" "OpsManager_config" {
 
   }
   provisioner "file" {
-    source      = "config_file"
+    source      = "appDB_config_file"
     destination = "/home/ec2-user/config_file"
     connection {
       host        = coalesce(aws_instance.OpsManager.public_ip, aws_instance.OpsManager.private_ip)
@@ -193,7 +222,7 @@ resource "null_resource" "OpsManager_config" {
   }
 
   provisioner "remote-exec" {
-    script = "install_script.sh"
+    script = "opsmanager_install_script.sh"
     connection {
       host        = coalesce(aws_instance.OpsManager.public_ip, aws_instance.OpsManager.private_ip)
       agent       = true
@@ -205,8 +234,150 @@ resource "null_resource" "OpsManager_config" {
   }
 }
 
+data "external" "agentInfo" {
+  depends_on = [null_resource.OpsManager_configuration]
+
+  program = ["python3", "${path.module}/opsmanager_config.py"]
+
+  query={
+    host = aws_instance.OpsManager.public_dns
+    internalDns = aws_instance.OpsManager.private_dns
+    username = var.opsManagerUser
+    password = var.opsManagerPass
+    firstname = var.opsManagerFirstname
+    lastname =  var.opsManagerLastname
+  }
+}
+
 output "host_ip" {
   description = "Ops Manager URL"
-  value = "${aws_instance.OpsManager.public_ip}:8080"
+  value = "${aws_instance.OpsManager.public_dns}:8080"
 
+}
+
+
+# Agent nodes for MongoDB Deployments
+
+data "template_file" "agentConfig" {
+  template = file("${path.module}/agent_config.tpl")
+  vars = {
+    mmsGroupId = data.external.agentInfo.result["mmsGroupId"]
+    mmsApiKey  = data.external.agentInfo.result["mmsApiKey"]
+    mmsBaseUrl = "http://${aws_instance.OpsManager.public_dns}:8080"
+  }
+}
+
+data "template_file" "agent_install_script" {
+  template = file("${path.module}/agent_install_script.tpl")
+  vars = {
+    mmsBaseUrl = "http://${aws_instance.OpsManager.public_dns}:8080"
+  }
+}
+
+resource "aws_security_group" "AgentNode" {
+  name        = "${var.initials}_Agents"
+  description = "Allow ingress for RS"
+
+  ingress = [
+    {
+      description      = "SSH Traffic"
+      from_port        = 22
+      to_port          = 22
+      protocol         = "tcp"
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = null
+      prefix_list_ids  = null
+      security_groups  = null
+      self             = null
+    },
+    {
+      description      = "RDP"
+      from_port        = 3389
+      to_port          = 3389
+      protocol         = "tcp"
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = null
+      prefix_list_ids  = null
+      security_groups  = null
+      self             = null
+    },
+    {
+      description      = "MongoDB Connection"
+      from_port        = 27017
+      to_port          = 27017
+      protocol         = "tcp"
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = null
+      prefix_list_ids  = null
+      security_groups  = null
+      self             = null
+    }
+  ]
+  egress = [
+    {
+      description      = "All Ports/Protocols"
+      from_port        = 0
+      to_port          = 0
+      protocol         = "-1"
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = ["::/0"]
+      prefix_list_ids  = null
+      security_groups  = null
+      self             = null
+    }
+  ]
+
+}
+
+resource "aws_instance" "AgentNode" {
+  ami                    = "ami-0453cb7b5f2b7fca2"
+  instance_type          = var.agentInstancetype
+  vpc_security_group_ids = [aws_security_group.AgentNode.id]
+  key_name               = var.keyName
+  count                  = var.agentNodecount
+
+  tags = {
+    Name      = "${var.initials}_Agent",
+    owner     = var.ownerName,
+    expire-on = var.expire_on,
+    purpose   = var.purpose
+  }
+  provisioner "file" {
+    content     = data.template_file.agentConfig.rendered
+    destination = "/home/ec2-user/automation-agent.config"
+    connection {
+      host        = coalesce(self.public_ip, self.private_ip)
+      agent       = true
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = file(var.keyPath)
+    }
+  }
+
+  provisioner "file" {
+    content     = data.template_file.agent_install_script.rendered
+    destination = "/home/ec2-user/install_script.sh"
+    connection {
+      host        = coalesce(self.public_ip, self.private_ip)
+      agent       = true
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = file(var.keyPath)
+    }
+
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /home/ec2-user/install_script.sh",
+      "./install_script.sh"
+    ]
+    connection {
+      host        = coalesce(self.public_ip, self.private_ip)
+      agent       = true
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = file(var.keyPath)
+    }
+
+  }
 }
