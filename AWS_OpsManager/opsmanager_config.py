@@ -1,6 +1,5 @@
 import requests
 import sys
-import requests
 import json
 from requests.auth import HTTPDigestAuth
 import logging
