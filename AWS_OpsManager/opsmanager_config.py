@@ -62,7 +62,7 @@ def setHeadDirectory(host, internalDNS):
         "configured": True,
         "machine": {
             "machine": internalDNS,
-            "headRootDirectory": "/headdb"
+            "headRootDirectory": "/headdb/"
         }
     })
     headers = {
