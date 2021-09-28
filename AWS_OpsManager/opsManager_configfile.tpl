@@ -97,5 +97,7 @@ mms.mail.transport=smtp
 mms.minimumTLSVersion=TLSv1.2
 mms.replyToEmailAddr=cloud-manager-support@mongodb.com
 mms.centralUrl=${OpsManagerUrl}
+mms.https.PEMKeyFile = /certs/test-ca.pem
+mms.https.dualConnectors = true
 mms.mongoDbUsage.ui.enabled=true
 mms.publicApi.whitelistEnabled = false

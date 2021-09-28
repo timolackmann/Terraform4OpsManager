@@ -210,6 +210,19 @@ resource "null_resource" "OpsManager_configuration" {
   }
 
   provisioner "file" {
+    source      = "openssl-test-ca.cnf"
+    destination = "/home/ec2-user/openssl-test-ca.cnf"
+    connection {
+      host        = coalesce(aws_instance.OpsManager.public_ip, aws_instance.OpsManager.private_ip)
+      agent       = true
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = file(var.keyPath)
+    }
+
+  }
+
+  provisioner "file" {
     content     = self.triggers.config_file
     destination = "/home/ec2-user/opsmanager_config"
     connection {
@@ -239,19 +252,19 @@ data "external" "agentInfo" {
 
   program = ["python3", "${path.module}/opsmanager_config.py"]
 
-  query={
-    host = aws_instance.OpsManager.public_dns
+  query = {
+    host        = aws_instance.OpsManager.public_dns
     internalDns = aws_instance.OpsManager.private_dns
-    username = var.opsManagerUser
-    password = var.opsManagerPass
-    firstname = var.opsManagerFirstname
-    lastname =  var.opsManagerLastname
+    username    = var.opsManagerUser
+    password    = var.opsManagerPass
+    firstname   = var.opsManagerFirstname
+    lastname    = var.opsManagerLastname
   }
 }
 
-output "host_ip" {
+output "UI_URL" {
   description = "Ops Manager URL"
-  value = "${aws_instance.OpsManager.public_dns}:8080"
+  value       = "https://${aws_instance.OpsManager.public_dns}:8443"
 
 }
 
