@@ -13,5 +13,11 @@ In addition, a python application is used for configuration of the backup capabi
 # How to use
 
 1. Install Terraform
+2. provide aws credentials e.g. in /.aws/credentials
+3. Run `terraform init`
+4. Install python package "requests"
+5. Provide relevant parameters within the file "terraform.tfvars"
+6. Run `terraform apply`
+7. Use output URL to access Ops Manager UI
 
 ---
