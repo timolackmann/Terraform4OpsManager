@@ -16,7 +16,7 @@ In addition, a python application is used for configuration of the backup capabi
 2. provide aws credentials e.g. in /.aws/credentials
 3. Run `terraform init`
 4. Install python package "requests"
-5. Create _terraform.tfvars_ within the AWS*OpsManager(AWS_OpsManager) directory. For this copy _terraform.tfvars.template_, fill in your required paramters and rename the file to _terraform.tfvars_
+5. Create _terraform.tfvars_ within the AWS_OpsManager(AWS_OpsManager) directory. For this copy _terraform.tfvars.template_, fill in your required paramters and rename the file to _terraform.tfvars_
 6. Run `terraform apply`
 7. Confirm plan by entering `yes`
 8. Use output URL to access Ops Manager UI
