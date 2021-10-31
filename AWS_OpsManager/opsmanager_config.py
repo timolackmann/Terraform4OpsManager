@@ -4,6 +4,25 @@ import json
 from requests.auth import HTTPDigestAuth
 import logging
 import time
+import socket
+import operator
+import os
+
+
+def checkOpsManager(host):
+    a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    location = (host, 8080)
+    result_of_check = a_socket.connect_ex(location)
+
+    if result_of_check == 0:
+        logging.debug("Port is open")
+        a_socket.close()
+        return True
+    else:
+        logging.debug("Port is not open")
+        a_socket.close()
+        return False
 
 
 def createUser(host, username, password, firstname, lastname):
@@ -20,16 +39,12 @@ def createUser(host, username, password, firstname, lastname):
     }
 
     response = requests.request("POST", url, headers=headers, data=payload)
-    # print(response.text)
-    # text = '{"programmaticApiKey":{"desc":"Automatically generated Global API key","id":"6149e4700ad4f05225d6d855","links":[{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/orgs/null/apiKeys/6149e4700ad4f05225d6d855","rel":"self"}],"privateKey":"4f82f471-3e75-4104-a480-45d996b74f00","publicKey":"dsnslhgt","roles":[{"roleName":"GLOBAL_OWNER"}]},"user":{"emailAddress":"timo.lackmann@example.com","firstName":"Timo","id":"6149e4700ad4f05225d6d853","lastName":"Lackmann","links":[{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/users/6149e4700ad4f05225d6d853","rel":"self"},{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/users/6149e4700ad4f05225d6d853/whitelist","rel":"http://cloud.mongodb.com/whitelist"},{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/users/6149e4700ad4f05225d6d853/accessList","rel":"http://cloud.mongodb.com/accessList"}],"roles":[{"roleName":"GLOBAL_OWNER"}],"teamIds":[],"username":"timo.lackmann@example.com"}}'
 
     jsonInfo = json.loads(response.text)
     global privateKey
     privateKey = jsonInfo['programmaticApiKey']['privateKey']
     global publicKey
     publicKey = jsonInfo['programmaticApiKey']['publicKey']
-#    print(privateKey)
-#    print(publicKey)
 
 
 def createProject(host):
@@ -44,14 +59,16 @@ def createProject(host):
 
     response = requests.request("POST", url, headers=headers,
                                 data=payload, auth=HTTPDigestAuth(publicKey, privateKey))
-    # print(response.text)
 
-    # text = '{"activeAgentCount":0,"agentApiKey":"6149f6960ad4f05225d6d95256748b3a168d95dd0c7706e813512466","hostCounts":{"arbiter":0,"config":0,"master":0,"mongos":0,"primary":0,"secondary":0,"slave":0},"id":"6149f6960ad4f05225d6d943","links":[{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/groups/6149f6960ad4f05225d6d943","rel":"self"},{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/groups/6149f6960ad4f05225d6d943/hosts","rel":"http://cloud.mongodb.com/hosts"},{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/groups/6149f6960ad4f05225d6d943/users","rel":"http://cloud.mongodb.com/users"},{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/groups/6149f6960ad4f05225d6d943/clusters","rel":"http://cloud.mongodb.com/clusters"},{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/groups/6149f6960ad4f05225d6d943/alertConfigs","rel":"http://cloud.mongodb.com/alertConfigs"},{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/groups/6149f6960ad4f05225d6d943/alerts","rel":"http://cloud.mongodb.com/alerts"},{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/groups/6149f6960ad4f05225d6d943/backupConfigs","rel":"http://cloud.mongodb.com/backupConfigs"},{"href":"http://ec2-18-184-79-224.eu-central-1.compute.amazonaws.com:8080/api/public/v1.0/groups/6149f6960ad4f05225d6d943/agents","rel":"http://cloud.mongodb.com/agents"}],"name":"Demo","orgId":"6149f6960ad4f05225d6d944","publicApiEnabled":true,"replicaSetCount":0,"shardCount":0,"tags":[]}'
     jsonInfo = json.loads(response.text)
     global mmsGroupId
     mmsGroupId = jsonInfo['id']
     global mmsApiKey
     mmsApiKey = jsonInfo['agentApiKey']
+
+    file = open("agentConfig.json", "w")
+    file.write(json.dumps({'mmsGroupId': mmsGroupId, 'mmsApiKey': mmsApiKey}))
+    file.close
 
 
 def setHeadDirectory(host, internalDNS):
@@ -135,11 +152,25 @@ if __name__ == "__main__":
     logging.debug("internalDNS: {}".format(
         internalDNS))
 
-    createUser(host, username, password, firstname, lastname)
-    createProject(host)
-    time.sleep(10)
-    setHeadDirectory(host, internalDNS)
-    setFileStore(host)
-    setOplogStore(host)
-    sys.stdout.write(json.dumps(
-        {'mmsGroupId': str(mmsGroupId), 'mmsApiKey': str(mmsApiKey)}))
+# Check if Ops Manager is up and available
+    while operator.not_(checkOpsManager(host)):
+        time.sleep(90)
+
+    if (os.path.isfile("agentConfig.json")):
+        json_file = open("agentConfig.json")
+        agentParameters = json.load(json_file)
+        json_file.close()
+
+        mmsGroupId = agentParameters["mmsGroupId"]
+        mmsApiKey = agentParameters["mmsApiKey"]
+        sys.stdout.write(json.dumps(
+            {'mmsGroupId': str(mmsGroupId), 'mmsApiKey': str(mmsApiKey)}))
+    else:
+        createUser(host, username, password, firstname, lastname)
+        createProject(host)
+        time.sleep(10)
+        setHeadDirectory(host, internalDNS)
+        setFileStore(host)
+        setOplogStore(host)
+        sys.stdout.write(json.dumps(
+            {'mmsGroupId': str(mmsGroupId), 'mmsApiKey': str(mmsApiKey)}))

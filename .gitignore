@@ -30,3 +30,5 @@ override.tf.json
 
 # Mac files
 .DS_Store
+AWS_OpsManager/agentConfig.json
+AWS_OpsManager/.DS_Store

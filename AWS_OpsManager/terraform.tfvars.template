@@ -1,0 +1,26 @@
+#region of your deployment of Ops Manager and Agents
+region = "eu-central-1"
+#AWS instance typ of Ope Manager deploymen (recommended: t2.xlarge)
+instancetype = "t2.xlarge"
+
+# Adding SA related tags
+expire_on = "YYYY-MM-DD"
+purpose   = "training" #following SA rules for acceptable purposes
+initials  = "fl"
+ownerName = "<firstname>.<lastname>"
+
+# keyName refers to the ssh key file which must be present in the selected AWS region
+keyName = "SSHKey"
+
+# Must contain the absoult path in order to be usable for an ssh connection
+keyPath = "/Users/<username>/Downloads/SSHKey.pem"
+
+#details of the inital Ops Manager User
+opsManagerUser      = "<firstname>.<lastname>@mongodb.com"
+opsManagerPass      = "<password>"
+opsManagerFirstname = "<firstname>"
+opsManagerLastname  = "<lastname>"
+
+#Configuration of nodes that will be added to the Ops Manager for MongoDB Deployments
+agentNodecount    = 3
+agentInstancetype = "t2.large"
