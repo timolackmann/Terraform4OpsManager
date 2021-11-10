@@ -12,7 +12,7 @@ In addition, a python application is used for configuration of the backup capabi
 
 # How to use
 
-1. Install Terraform
+1. Install Terraform and AWS CLI
 2. provide aws credentials e.g. in /.aws/credentials
 3. Run `terraform init`
 4. Install python package "requests"
