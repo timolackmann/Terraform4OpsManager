@@ -73,6 +73,17 @@ resource "aws_security_group" "OpsManager" {
       prefix_list_ids  = null
       security_groups  = null
       self             = null
+    },
+    {
+      description      = "Queryable Backup Port"
+      from_port        = 25999
+      to_port          = 25999
+      protocol         = "tcp"
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = null
+      prefix_list_ids  = null
+      security_groups  = null
+      self             = null
     }
   ]
   egress = [
